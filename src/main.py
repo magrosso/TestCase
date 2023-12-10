@@ -1,12 +1,15 @@
-from test_cases import test_case_1
+from test_cases import test_case_1, test_case_2
 
 
 def main() -> None:
-    tc_name: str = "TC 1"
     try:
-        test_case_1(test_name=tc_name)
+        test_case_1(test_name="TC1")
     except AssertionError as ex:
-        print(ex)
+        print(f"main: {ex}")
+    try:
+        test_case_2(test_name="TC2")
+    except AssertionError as ex:
+        print(f"main: {ex}")
 
 
 if __name__ == "__main__":

@@ -23,7 +23,7 @@ class TestCase:
     def __init__(self, test_name: str, execute_all: bool = False, print_fail_summary: bool = False):
         self.results: list[tuple[bool, str | None]] = []
         self.test_name = test_name
-        self.execute_all = execute_all
+        self.continue_on_failure = execute_all
         self.print_fail_summary = print_fail_summary
 
     def __enter__(self) -> Self:
@@ -35,7 +35,8 @@ class TestCase:
         no_exception: tuple[bool, bool, bool] = (exc_type is None, exc_val is None, exc_tb is None)
         total_assert_count: int = len(self.results)
         failed_assert_count: int = len(failed_results)
-        tc_fail_message: str = f"{failed_assert_count} out of {total_assert_count} assertions failed"
+        passed_assert_count: int = total_assert_count - failed_assert_count
+        tc_fail_message: str = f"assertions failed={failed_assert_count},  passed={passed_assert_count}"
         if all(no_exception):
             # no exception during test case execution
             if failed_results:
@@ -51,16 +52,46 @@ class TestCase:
         return True
 
     def assert_equal(
-        self, actual: int, expected: int, add_fail_message: str = "", force_test_fail: bool = False
-    ) -> None:
+        self, actual: int, expected: int, assert_fail_message: str = "", force_test_fail: bool = False
+    ) -> bool:
         assert_result: bool = actual == expected
+
         fail_message: str | None = (
-            f"assert_equal: {actual=} != {expected=} ({add_fail_message})" if not assert_result else None
+            f"{self.test_name} - assert_equal({actual=} == {expected=}) failed ({assert_fail_message})"
+            if not assert_result
+            else None
         )
+        return self._track_assert_result(
+            assert_result=assert_result, fail_message=fail_message, force_test_fail=force_test_fail
+        )
+
+    def assert_is(
+        self, actual: bool, expected: bool, assert_fail_message: str = "", force_test_fail: bool = False
+    ) -> bool:
+        assert_result: bool = actual is expected
+
+        fail_message: str | None = (
+            f"{self.test_name} - assert_is({actual=} is {expected=}) failed ({assert_fail_message})"
+            if not assert_result
+            else None
+        )
+
+        return self._track_assert_result(
+            assert_result=assert_result, fail_message=fail_message, force_test_fail=force_test_fail
+        )
+
+    def _track_assert_result(self, assert_result: bool, fail_message: str | None, force_test_fail: bool) -> bool:
+        # keep track of assert results within test case context
         self.results.append((assert_result, fail_message))
-        # fail test case if this assertion failed and:
-        # - force_test_fail is True or
-        # - self.execute_all is False
+
+        # If assertion failed, either:
+        # a. the whole test case fails immediately by raising an exception
+        #    - force_test_fail is True or
+        #    - continue_on_failure is False
+        # b. or an error is logged:
         if not assert_result:
-            if force_test_fail or not self.execute_all:
+            if force_test_fail or not self.continue_on_failure:
                 raise AssertionError(fail_message)
+            print(f"Log Error: {fail_message}")
+
+        return assert_result
